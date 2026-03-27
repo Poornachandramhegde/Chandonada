@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+indic-transliteration
+pydantic
+python-multipart
