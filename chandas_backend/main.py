@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import re
+import os
 
 try:
     from indic_transliteration import sanscript
@@ -110,21 +112,11 @@ def split_into_padas(slp_clean: str, pada_size: int = 8):
 
 # ── Anushtubh Rule Checker ─────────────────────────────────────
 def check_anushtubh_pada(pattern: str, pada_number: int):
-    """
-    Anushtubh rules (8 syllables per pāda):
-      Pos 1-4 : free
-      Pos 5   : Laghu  (L)
-      Pos 6   : Guru   (G)
-      Pos 7   : Guru   for odd  pādas (1, 3)
-                Laghu  for even pādas (2, 4)
-      Pos 8   : free
-    """
     checks    = []
     violations= []
     score     = 0
     total     = 4
 
-    # Length
     ok = len(pattern) == 8
     if ok: score += 1
     else:  violations.append(f"Expected 8 syllables, got {len(pattern)}")
@@ -135,7 +127,6 @@ def check_anushtubh_pada(pattern: str, pada_number: int):
     if len(pattern) < 7:
         return False, 0.0, violations, checks
 
-    # Position 5 → L
     got5 = pattern[4]
     ok5  = got5 == "L"
     if ok5: score += 1
@@ -145,7 +136,6 @@ def check_anushtubh_pada(pattern: str, pada_number: int):
                    "ok": ok5,
                    "reason": "5th syllable is always Laghu in Anushtubh"})
 
-    # Position 6 → G
     got6 = pattern[5]
     ok6  = got6 == "G"
     if ok6: score += 1
@@ -155,7 +145,6 @@ def check_anushtubh_pada(pattern: str, pada_number: int):
                    "ok": ok6,
                    "reason": "6th syllable is always Guru in Anushtubh"})
 
-    # Position 7
     expected_7 = "G" if pada_number in [1, 3] else "L"
     label_7    = "Guru" if expected_7 == "G" else "Laghu"
     parity     = "odd" if pada_number in [1, 3] else "even"
@@ -205,9 +194,101 @@ def analyse_anushtubh(slp_clean: str):
         "total_padas"    : len(padas),
     }
 
-# ── Models ─────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════
+# ── CHANT MODULE ──────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+try:
+    from gtts import gTTS
+    import librosa
+    import soundfile as sf
+    HAS_CHANT = True
+except ImportError:
+    HAS_CHANT = False
+
+CHANT_OUTPUT_DIR = "chant_outputs"
+os.makedirs(CHANT_OUTPUT_DIR, exist_ok=True)
+
+# ── SLP1 → Devanagari ─────────────────────────────────────────
+def slp1_to_dev(text: str) -> str:
+    if HAS_TRANSLIT:
+        return transliterate(text, sanscript.SLP1, sanscript.DEVANAGARI)
+    return text
+
+# ── Text → Speech (gTTS) ──────────────────────────────────────
+def text_to_speech(dev_text: str, wav_file: str = "base.wav") -> str | None:
+    if not HAS_CHANT:
+        return None
+    try:
+        tts = gTTS(dev_text, lang="hi")
+        mp3_path = os.path.join(CHANT_OUTPUT_DIR, "temp.mp3")
+        tts.save(mp3_path)
+
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 2000:
+            return None
+
+        y, sr = librosa.load(mp3_path)
+        if len(y) == 0:
+            return None
+
+        wav_path = os.path.join(CHANT_OUTPUT_DIR, wav_file)
+        sf.write(wav_path, y, sr)
+        return wav_path
+    except Exception as e:
+        print("TTS Error:", e)
+        return None
+
+# ── Apply Rhythm (Chandas) ─────────────────────────────────────
+def apply_rhythm(wav_file: str, lg_pattern: list[str], output_file: str = "rhythm.wav") -> str | None:
+    if not HAS_CHANT:
+        return None
+    try:
+        y, sr = librosa.load(wav_file)
+        if "G" in lg_pattern:
+            y = librosa.effects.time_stretch(y, rate=0.85)
+        out_path = os.path.join(CHANT_OUTPUT_DIR, output_file)
+        sf.write(out_path, y, sr)
+        return out_path
+    except Exception as e:
+        print("Rhythm Error:", e)
+        return None
+
+# ── Apply Pitch (Raga Effect) ─────────────────────────────────
+def apply_pitch(wav_file: str, output_file: str = "final_output.wav") -> str | None:
+    if not HAS_CHANT:
+        return None
+    try:
+        y, sr = librosa.load(wav_file)
+        y_shifted = librosa.effects.pitch_shift(y, sr=sr, n_steps=2)
+        out_path = os.path.join(CHANT_OUTPUT_DIR, output_file)
+        sf.write(out_path, y_shifted, sr)
+        return out_path
+    except Exception as e:
+        print("Pitch Error:", e)
+        return None
+
+# ── Full Chant Pipeline ────────────────────────────────────────
+def generate_chant(slp1_text: str, lg_pattern: list[str], output_filename: str = "final_output.wav") -> str | None:
+    dev_text = slp1_to_dev(slp1_text)
+    wav_file = text_to_speech(dev_text, wav_file="base.wav")
+    if wav_file is None:
+        return None
+    rhythm_file = apply_rhythm(wav_file, lg_pattern, output_file="rhythm.wav")
+    if rhythm_file is None:
+        return None
+    final_file = apply_pitch(rhythm_file, output_file=output_filename)
+    return final_file
+
+
+# ══════════════════════════════════════════════════════════════
+# ── Models ────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
 class AnalyseRequest(BaseModel):
     text: str
+
+class ChantRequest(BaseModel):
+    text      : str
+    lg_pattern: list[str] = []
 
 class CheckResult(BaseModel):
     pos     : str
@@ -236,7 +317,18 @@ class AnalyseResponse(BaseModel):
     is_anushtubh   : bool
     padas          : list[PadaResult]
 
-# ── Endpoint ───────────────────────────────────────────────────
+class ChantResponse(BaseModel):
+    success     : bool
+    message     : str
+    audio_url   : str | None = None
+    devanagari  : str | None = None
+    lg_pattern  : list[str] = []
+
+
+# ══════════════════════════════════════════════════════════════
+# ── Endpoints ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+
 @app.post("/analyse", response_model=AnalyseResponse)
 def analyse(req: AnalyseRequest):
     text = req.text.strip()
@@ -258,6 +350,74 @@ def analyse(req: AnalyseRequest):
         padas           = result["padas"],
     )
 
+
+@app.post("/chant", response_model=ChantResponse)
+def chant(req: ChantRequest):
+    """
+    Generate a chant audio file from Devanagari or SLP1 text.
+    Applies rhythm (based on Laghu/Guru pattern) and pitch shift.
+    Returns a URL to download the generated WAV file.
+    """
+    if not HAS_CHANT:
+        return ChantResponse(
+            success=False,
+            message="Chant dependencies (gtts, librosa, soundfile) not installed."
+        )
+
+    text = req.text.strip()
+
+    # Auto-detect script: if Devanagari, transliterate to SLP1 first
+    is_devanagari = any('\u0900' <= ch <= '\u097F' for ch in text)
+    if is_devanagari and HAS_TRANSLIT:
+        slp1_text = transliterate(text, sanscript.DEVANAGARI, sanscript.SLP1)
+        slp1_text = fix_slp(slp1_text).replace(" ", "")
+        dev_text  = text
+    else:
+        slp1_text = fix_slp(text).replace(" ", "")
+        dev_text  = slp1_to_dev(slp1_text)
+
+    # Derive lg_pattern from analysis if not provided
+    lg_pattern = req.lg_pattern
+    if not lg_pattern:
+        slp_clean  = clean_text(slp1_text)
+        syls       = get_syllables(slp_clean)
+        lg_pattern = get_weights(syls)
+
+    import uuid
+    output_filename = f"chant_{uuid.uuid4().hex[:8]}.wav"
+    final_file = generate_chant(slp1_text, lg_pattern, output_filename=output_filename)
+
+    if final_file is None:
+        return ChantResponse(
+            success=False,
+            message="Chant generation failed. Check server logs.",
+            devanagari=dev_text,
+            lg_pattern=lg_pattern,
+        )
+
+    return ChantResponse(
+        success    = True,
+        message    = "Chant generated successfully.",
+        audio_url  = f"/chant/audio/{output_filename}",
+        devanagari = dev_text,
+        lg_pattern = lg_pattern,
+    )
+
+
+@app.get("/chant/audio/{filename}")
+def get_chant_audio(filename: str):
+    """Serve generated chant WAV files."""
+    path = os.path.join(CHANT_OUTPUT_DIR, filename)
+    if not os.path.exists(path):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    return FileResponse(path, media_type="audio/wav", filename=filename)
+
+
 @app.get("/")
 def root():
-    return {"message": "Chandas Detection API is running!"}
+    return {
+        "message"    : "Chandas Detection API is running!",
+        "chant_ready": HAS_CHANT,
+        "translit_ready": HAS_TRANSLIT,
+    }
