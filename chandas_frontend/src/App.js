@@ -4,7 +4,6 @@ const API = process.env.REACT_APP_API_URL || "https://chandonada-backend.onrende
 
 const SAMPLE_SHLOKAS = [
   { label: "Ganesha Shloka", text: "वक्रतुण्ड महाकाय सूर्यकोटि समप्रभ निर्विघ्नं कुरु मे देव सर्वकार्येषु सर्वदा" },
-  { label: "Bhagavad Gita 1.1", text: "धर्मक्षेत्रे कुरुक्षेत्रे समवेता युयुत्सवः मामकाः पाण्डवाश्चैव किमकुर्वत सञ्जय" },
   { label: "Bhagavad Gita 2.47", text: "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि" }
 ];
 
