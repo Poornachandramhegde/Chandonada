@@ -3,3 +3,8 @@ uvicorn[standard]
 indic-transliteration
 pydantic
 python-multipart
+numpy
+gtts
+librosa
+soundfile
+numba
