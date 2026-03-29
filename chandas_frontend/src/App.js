@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-
+import RagaPanel from "./Ragapanel";
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 const SAMPLE_SHLOKAS = [
@@ -316,7 +316,9 @@ export default function App() {
 
         {/* Results */}
         {result && <>
-
+        
+          {/* Raga Pitch Mapping — after verdict banner */}
+         {result && <RagaPanel analyseResult={result} />}
           {/* Verdict Banner */}
           <div style={s.verdictBanner(result.is_anushtubh)}>
             <div>
@@ -336,6 +338,9 @@ export default function App() {
               <div style={s.scoreLabel}>match</div>
             </div>
           </div>
+
+          
+  ...   
 
           {/* Stats Row */}
           <div style={s.statsRow}>
@@ -464,6 +469,8 @@ export default function App() {
               ))}
             </div>
           </div>
+          
+
 
         </>}
       </main>

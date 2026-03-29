@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from raga_layer import assign_pitch, get_raga_info, RAGAS
 import re
 import os
 
@@ -324,6 +325,31 @@ class ChantResponse(BaseModel):
     devanagari  : str | None = None
     lg_pattern  : list[str] = []
 
+class RagaRequest(BaseModel):
+    syllables : list[str]
+    weights   : list[str]
+    raga_name : str = "Yaman"       # "Yaman" or "Mohanam"
+    contour   : str = "arch"        # "arch" | "ascending" | "descending"
+    pada_size : int = 8
+
+class SyllablePitch(BaseModel):
+    syllable         : str
+    pada_idx         : int
+    position_in_pada : int
+    weight           : str
+    pitch_hz         : float
+    swara_label      : str
+    is_gana_head     : bool
+    role             : str
+
+class RagaResponse(BaseModel):
+    raga_name    : str
+    description  : str
+    vadi_swara   : str
+    samvadi_swara: str
+    contour      : str
+    syllable_map : list[SyllablePitch]
+
 
 # ══════════════════════════════════════════════════════════════
 # ── Endpoints ─────────────────────────────────────────────────
@@ -402,6 +428,43 @@ def chant(req: ChantRequest):
         devanagari = dev_text,
         lg_pattern = lg_pattern,
     )
+
+@app.post("/raga", response_model=RagaResponse)
+def raga(req: RagaRequest):
+    """
+    Layer 3: assign raga pitches to syllables from chanda detection.
+    Feed syllables + weights from /analyse response directly here.
+    """
+    if req.raga_name not in RAGAS:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Choose: {list(RAGAS.keys())}")
+
+    mapped = assign_pitch(
+        syllables  = req.syllables,
+        weights    = req.weights,
+        pada_size  = req.pada_size,
+        raga_name  = req.raga_name,
+        contour    = req.contour,
+    )
+    info = get_raga_info(req.raga_name)
+
+    return RagaResponse(
+        raga_name     = req.raga_name,
+        description   = info["description"],
+        vadi_swara    = info["vadi_swara"],
+        samvadi_swara = info["samvadi_swara"],
+        contour       = req.contour,
+        syllable_map  = mapped,
+    )
+
+
+@app.get("/raga/info/{raga_name}")
+def raga_info(raga_name: str):
+    """Return metadata for a raga (swaras, aroha, avaroha, vadi, samvadi)."""
+    if raga_name not in RAGAS:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Choose: {list(RAGAS.keys())}")
+    return get_raga_info(raga_name)
 
 
 @app.get("/chant/audio/{filename}")
