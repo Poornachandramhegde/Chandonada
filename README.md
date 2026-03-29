@@ -1,86 +1,164 @@
-# Chandas Detection System
+# 🕉️ Chandonāda — Chandas Recognition and Melodic Sanskrit Recitation System
 
-## Project Structure
+Chandonāda is a computational system that analyzes Sanskrit verses, detects their **chandas (metrical structure)**, and generates **melodic chant-style audio aligned with the rhythmic structure of the verse**.
+
+The current prototype focuses on **Anuṣṭubh Chandas**, one of the most widely used metres in classical Sanskrit literature, including the **Bhagavad Gītā**, and **Mahābhārata**.
+
+The system integrates **metrical analysis, Indic transliteration, rāga-based pitch mapping, and audio synthesis** to create an interactive platform for exploring Sanskrit poetic structure and recitation.
+
+---
+
+## 🌐 Live Demo
+
+Frontend
+https://chandonada.vercel.app
+
+Backend API
+https://chandonada-backend.onrender.com
+
+API Documentation
+https://chandonada-backend.onrender.com/docs
+
+---
+
+## ✨ Features
+
+* 🕉️ **Anuṣṭubh Chandas Detection** — Identifies the metrical structure of Sanskrit ślokas
+* 🔤 **Indic Transliteration Support** — Handles Sanskrit input in Devanagari
+* 🎼 **Melodic Chant Generation** — Generates chant-style audio output
+* 🎵 **Rāga Pitch Mapping** — Maps syllables to musical swaras using rāga rules
+* 🌐 **FastAPI Backend** — High-performance API architecture
+* 🖥️ **Interactive Frontend** — User interface for analysing and listening to chants
+
+---
+
+## 🏗️ Project Architecture
+
 ```
-chandas_backend/      ← FastAPI Python backend
-  main.py
-  requirements.txt
-
-chandas_frontend/     ← React frontend
-  src/App.jsx
+Chandonada
+│
+├── chandas_backend
+│   ├── main.py
+│   ├── raga_layer.py
+│   ├── requirements.txt
+│   ├── audio/
+│   └── chant_outputs/
+│
+├── chandas_frontend
+│   ├── src/
+│   ├── App.js
+│   └── RagaPanel.js
+│
+└── README.md
 ```
 
 ---
 
-## 1. Run the Backend
+## ⚙️ Backend Setup
 
-```bash
+Navigate to the backend folder:
+
+```
 cd chandas_backend
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the server
-uvicorn main:app --reload --port 8000
 ```
 
-Backend runs at: http://localhost:8000
-API docs at:     http://localhost:8000/docs
+Install dependencies:
+
+```
+pip install -r requirements.txt
+```
+
+Run the FastAPI server:
+
+```
+python -m uvicorn main:app --reload --port 8000
+```
+
+Backend will run at:
+
+```
+http://localhost:8000
+```
+
+API documentation:
+
+```
+http://localhost:8000/docs
+```
 
 ---
 
-## 2. Run the Frontend
+## 💻 Frontend Setup
 
-```bash
-# Create React app (first time only)
-npx create-react-app chandas_frontend
+Navigate to the frontend folder:
+
+```
 cd chandas_frontend
+```
 
-# Replace src/App.js content with src/App.jsx provided
-# Then start:
+Install dependencies:
+
+```
+npm install
+```
+
+Run the frontend:
+
+```
 npm start
 ```
 
-Frontend runs at: http://localhost:3000
+Frontend will run at:
 
----
-
-## API Endpoint
-
-### POST /analyse
-Request:
-```json
-{ "text": "वक्रतुण्ड महाकाय" }
 ```
-
-Response:
-```json
-{
-  "input_text": "वक्रतुण्ड महाकाय",
-  "slp1": "vakratuRqamahAkAya",
-  "syllables": [
-    { "syllable": "vak", "weight": "G", "symbol": "–" },
-    { "syllable": "ra",  "weight": "L", "symbol": "◡" }
-  ],
-  "pattern": "GLGL...",
-  "meter": "Anushtup",
-  "match_score": 87.5
-}
+http://localhost:3000
 ```
 
 ---
 
-## Pipeline
-```
-Shloka Input
-    ↓
-Chandas Detection (this system)
-    ↓
-Rhythm Structure
-    ↓
-Pitch Control
-    ↓
-Rāga Selection
-    ↓
-Chant Audio Output
-```
+## 🔄 System Workflow
+
+1. User inputs a Sanskrit verse
+2. Text is transliterated and syllabified
+3. Chandas detection verifies the **Anuṣṭubh metrical pattern**
+4. Syllables are mapped to **Laghu / Guru weights**
+5. Pitch mapping assigns **rāga-based musical frequencies**
+6. Audio chant is generated and returned to the user
+
+---
+
+## 🧠 Technologies Used
+
+* **Python**
+* **FastAPI**
+* **NumPy**
+* **gTTS**
+* **Librosa**
+* **Indic Transliteration**
+* **React**
+
+---
+
+## 🎯 Use Cases
+
+* Sanskrit education
+* Computational linguistics
+* Digital humanities research
+* Chant learning tools
+* Indian Knowledge Systems research
+
+---
+
+## 🚀 Future Improvements
+
+* Support for additional Sanskrit metres
+* Realistic **Vedic chant pitch modelling**
+* Real-time **audio waveform visualization**
+* Machine-learning based chandas classification
+
+---
+
+## ⚠️ Note
+
+The backend is hosted on a free cloud instance.
+The first request after inactivity may take **20–40 seconds** while the server wakes up.
