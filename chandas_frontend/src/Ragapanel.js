@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API = process.env.REACT_APP_API_URL || "https://chandonada-backend.onrender.com";
 
 const SAFFRON = "#E8670A";
 const GOLD    = "#F0A500";
